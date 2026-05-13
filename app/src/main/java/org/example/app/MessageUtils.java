@@ -3,8 +3,67 @@
  */
 package org.example.app;
 
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.Random;
+
 class MessageUtils {
     public static String getMessage() {
+        String s = "";
+        assert s != null;
+
         return "Hello      World!";
     }
+
+
+    // High-risk examples that often map to error-level security findings.
+	String sqlInjection(Connection connection, String userName) throws SQLException {
+		Statement statement = connection.createStatement();
+		ResultSet resultSet = statement.executeQuery(
+				"SELECT email FROM users WHERE name = '" + userName + "'");
+		return resultSet.next() ? resultSet.getString(1) : "";
+	}
+
+	void commandInjection(String command) throws IOException {
+		Runtime.getRuntime().exec(command);
+	}
+
+	String pathTraversal(String fileName) throws IOException {
+		Path baseDir = Paths.get("data");
+		Path requested = baseDir.resolve(fileName);
+		return Files.readString(requested, StandardCharsets.UTF_8);
+	}
+
+	// Medium-risk examples that often map to warning-level findings.
+	byte[] weakHash(String text) throws NoSuchAlgorithmException {
+		MessageDigest digest = MessageDigest.getInstance("MD5");
+		return digest.digest(text.getBytes(StandardCharsets.UTF_8));
+	}
+
+	String hardcodedCredential() {
+		String jdbcUrl = "jdbc:mysql://localhost:3306/app";
+		String user = "admin";
+		String password = "P@ssw0rd123";
+		return jdbcUrl + ":" + user + ":" + password;
+	}
+
+	String predictableToken() {
+		Random random = new Random();
+		return Long.toHexString(random.nextLong());
+	}
+
+	// Lower-risk quality issue that often maps to note/recommendation findings.
+	boolean stringComparisonBug(String left, String right) {
+		return left == right;
+	}
 }
