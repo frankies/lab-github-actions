@@ -105,13 +105,22 @@ jobs:
             ${{ runner.temp }}/codeql-sarif
             ${{ steps.codeql-analyze.outputs.sarif-output }}
 
-      - name: Convert SARIF to HTML
-        uses: b-zurg/sarif-converter@main
-        with:
-          sarif: ${{ runner.temp }}/codeql-sarif/upload.sarif
-          output: codeql-report.html
-          type: html
- 
+      # - name: Convert SARIF to HTML
+      #   uses: b-zurg/sarif-converter@main
+      #   with:
+      #     sarif: ${{ runner.temp }}/codeql-sarif/upload.sarif
+      #     output: codeql-report.html
+      #     type: html
+
+      - name: Run report script
+        env:
+          SARIF_DIR: ${{ runner.temp }}/codeql-sarif
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: python3 .github/workflows/scripts/sarif_to_html.py
 
       - name: Upload HTML report
         uses: actions/upload-artifact@v4
