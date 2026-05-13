@@ -103,73 +103,14 @@ jobs:
           name: sarif-report
           path:  |
             ${{ runner.temp }}/codeql-sarif
-            ${{ steps.codeql-analyze.outputs.sarif-output }}
-          
+
       - name: Convert SARIF to HTML
-        run: |
-          python - <<'PY'
-          import json, os, glob, html
-      
-          sarif_dir = os.environ.get("SARIF_DIR")
-          files = glob.glob(os.path.join(sarif_dir, "*.sarif"))
-          if not files:
-              raise SystemExit(f"No SARIF file found in {sarif_dir}")
-      
-          sarif_file = files[0]
-          with open(sarif_file, "r", encoding="utf-8") as f:
-              data = json.load(f)
-      
-          results = []
-          for run in data.get("runs", []):
-              tool = run.get("tool", {}).get("driver", {}).get("name", "CodeQL")
-              for r in run.get("results", []):
-                  msg = r.get("message", {}).get("text", "")
-                  rule = r.get("ruleId", "")
-                  level = r.get("level", "")
-                  locs = r.get("locations", [])
-                  location = ""
-                  if locs:
-                      pl = locs[0].get("physicalLocation", {})
-                      art = pl.get("artifactLocation", {}).get("uri", "")
-                      region = pl.get("region", {})
-                      line = region.get("startLine", "")
-                      location = f"{art}:{line}" if line else art
-                  results.append((tool, rule, level, location, msg))
-      
-          rows = "\n".join(
-              f"<tr><td>{html.escape(t)}</td><td>{html.escape(rule)}</td><td>{html.escape(level)}</td><td>{html.escape(loc)}</td><td>{html.escape(msg)}</td></tr>"
-              for t, rule, level, loc, msg in results
-          )
-      
-          out = """<!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="utf-8">
-            <title>CodeQL Report</title>
-            <style>
-              body { font-family: Arial, sans-serif; padding: 20px; }
-              table { border-collapse: collapse; width: 100%; }
-              th, td { border: 1px solid #ccc; padding: 8px; vertical-align: top; }
-              th { background: #f5f5f5; }
-            </style>
-          </head>
-          <body>
-            <h1>CodeQL Report</h1>
-            <p>Total findings: %d</p>
-            <table>
-              <tr><th>Tool</th><th>Rule</th><th>Level</th><th>Location</th><th>Message</th></tr>
-              %s
-            </table>
-          </body>
-          </html>""" % (len(results), rows)
-      
-          with open("codeql-report.html", "w", encoding="utf-8") as f:
-              f.write(out)
-      
-          print("Generated codeql-report.html")
-          PY
-        env:
-          SARIF_DIR: ${{ runner.temp }}/codeql-sarif
+        uses: b-zurg/sarif-converter@main
+        with:
+          sarif: ${{ runner.temp }}/codeql-sarif/upload.sarif
+          output: codeql-report.html
+          type: html
+ 
 
       - name: Upload HTML report
         uses: actions/upload-artifact@v4
@@ -177,19 +118,19 @@ jobs:
           name: codeql-html-report
           path: codeql-report.html
     
-      - name: Send email with CodeQL report
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: ${{ secrets.MAIL_SERVER }}
-          server_port: ${{ secrets.MAIL_PORT }}
-          username: ${{ secrets.MAIL_USERNAME }}
-          password: ${{ secrets.MAIL_PASSWORD }}
-          subject: CodeQL Report - ${{ github.repository }} - ${{ github.run_number }}
-          to: your-team@example.com
-          from: github-actions@example.com
-          body: |
-            CodeQL scan finished.
-            Repository: ${{ github.repository }}
-            Workflow: ${{ github.workflow }}
-            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          attachments: codeql-report.html
+      # - name: Send email with CodeQL report
+      #   uses: dawidd6/action-send-mail@v3
+      #   with:
+      #     server_address: ${{ secrets.MAIL_SERVER }}
+      #     server_port: ${{ secrets.MAIL_PORT }}
+      #     username: ${{ secrets.MAIL_USERNAME }}
+      #     password: ${{ secrets.MAIL_PASSWORD }}
+      #     subject: CodeQL Report - ${{ github.repository }} - ${{ github.run_number }}
+      #     to: your-team@example.com
+      #     from: github-actions@example.com
+      #     body: |
+      #       CodeQL scan finished.
+      #       Repository: ${{ github.repository }}
+      #       Workflow: ${{ github.workflow }}
+      #       Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      #     attachments: codeql-report.html
