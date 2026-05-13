@@ -96,7 +96,15 @@ jobs:
           echo "sarif-output=${{ steps.codeql-analyze.outputs.sarif-output }}"
           find "${{ runner.temp }}/codeql-sarif" -type f | sort || true
           find "${{ steps.codeql-analyze.outputs.sarif-output }}" -type f | sort || true
-      
+          
+      - name: Upload sarif report
+        uses: actions/upload-artifact@v4
+        with:
+          name: sarif-report
+          path:  |
+            ${{ runner.temp }}/codeql-sarif
+            ${{ steps.codeql-analyze.outputs.sarif-output }}
+          
       - name: Convert SARIF to HTML
         run: |
           python - <<'PY'
