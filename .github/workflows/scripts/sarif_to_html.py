@@ -13,6 +13,7 @@ github_server_url = os.environ.get("GITHUB_SERVER_URL", "https://github.com")
 repository = os.environ.get("GITHUB_REPOSITORY", "Unknown Repository")
 organization = os.environ.get("GITHUB_REPOSITORY_OWNER", "Unknown Organization")
 github_ref =  os.environ.get("GITHUB_SHA") or os.environ.get("GITHUB_REF_NAME") or "main"
+output_file = os.environ.get("OUTPUT_REPORT_HTML") or "codeql-security-report.html"
 
 print(f"Looking for SARIF files in {sarif_dir}...")
 files = glob.glob(os.path.join(sarif_dir, "*.sarif"))
@@ -267,7 +268,7 @@ out = f"""<!DOCTYPE html>
 </body>
 </html>"""
 
-output_file = "codeql-security-report.html"
+
 with open(output_file, "w", encoding="utf-8") as f:
     f.write(out)
 

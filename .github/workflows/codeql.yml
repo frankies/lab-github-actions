@@ -114,6 +114,7 @@ jobs:
 
       - name: Run report script
         env:
+          OUTPUT_REPORT_HTML: codeql-report.html
           SARIF_DIR: ${{ runner.temp }}/codeql-sarif
           GITHUB_SERVER_URL: ${{ github.server_url }}
           GITHUB_REPOSITORY: ${{ github.repository }}
