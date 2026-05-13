@@ -1,0 +1,187 @@
+# Please update the workflow trigger timing (the 'on:' block)
+# according to each project's branch strategy.
+#
+# You may wish to alter this file to override the set of languages analyzed,
+# or to provide custom queries or build logic.
+#
+# ******** NOTE ********
+# We have attempted to detect the languages in your repository. Please check
+# the `language` matrix defined below to confirm you have the correct set of
+# supported CodeQL languages.
+#
+name: "CodeQL Advanced"
+
+on:
+  schedule:
+    - cron: '25 18 * * 2'
+  workflow_dispatch:
+
+
+jobs:
+  analyze:
+    name: Analyze
+    # Runner size impacts CodeQL analysis time. To learn more, please see:
+    #   - https://gh.io/recommended-hardware-resources-for-running-codeql
+    #   - https://gh.io/supported-runners-and-hardware-resources
+    #   - https://gh.io/using-larger-runners
+    # Consider using larger runners for possible analysis time improvements.
+    runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
+    timeout-minutes: ${{ (matrix.language == 'swift' && 120) || 360 }}
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'java-kotlin' ]
+        # CodeQL supports [ 'c-cpp', 'csharp', 'go', 'java-kotlin', 'javascript-typescript', 'python', 'ruby', 'swift' ]
+        # Use only 'java-kotlin' to analyze code written in Java, Kotlin or both
+        # Use only 'javascript-typescript' to analyze code written in JavaScript, TypeScript or both
+        # Learn more about CodeQL language support at https://aka.ms/codeql-docs/language-support
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: 'adopt'
+          cache: 'gradle'
+
+      # Initializes the CodeQL tools for scanning.
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          # If you wish to specify custom queries, you can do so here or in a config file.
+          # By default, queries listed here will override any specified in a config file.
+          # Prefix the list here with "+" to use these queries and those in the config file.
+
+          # For more details on CodeQL's query packs, refer to: https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-queries-in-ql-packs
+          # security-and-quality already includes security-extended.
+          queries: security-and-quality
+
+
+      # Autobuild attempts to build any compiled languages (C/C++, C#, Go, Java, or Swift).
+      # If this step fails, then you should remove it and run the build manually (see below)
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v4
+
+      # ℹ️ Command-line programs to run using the OS shell.
+      # 📚 See https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun
+
+      #   If the Autobuild fails above, remove it and uncomment the following three lines.
+      #   modify them (or add more) to build your code if your project, please refer to the EXAMPLE below for guidance.
+
+      # - run: |
+      #     echo "Run, Build Application using script"
+      #     ./location_of_script_within_repo/buildscript.sh
+
+      - name: Perform CodeQL Analysis
+        id: codeql-analyze
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{matrix.language}}"
+          upload: always
+          upload-database: true
+          output: ${{ runner.temp }}/codeql-results
+          post-processed-sarif-path: ${{ runner.temp }}/codeql-sarif
+
+      - name: Show SARIF files
+        run: |
+          echo "sarif-output=${{ steps.codeql-analyze.outputs.sarif-output }}"
+          find "${{ runner.temp }}/codeql-sarif" -type f | sort || true
+          find "${{ steps.codeql-analyze.outputs.sarif-output }}" -type f | sort || true
+      
+      - name: Convert SARIF to HTML
+        run: |
+          python - <<'PY'
+          import json, os, glob, html
+      
+          sarif_dir = os.environ.get("SARIF_DIR")
+          files = glob.glob(os.path.join(sarif_dir, "*.sarif"))
+          if not files:
+              raise SystemExit(f"No SARIF file found in {sarif_dir}")
+      
+          sarif_file = files[0]
+          with open(sarif_file, "r", encoding="utf-8") as f:
+              data = json.load(f)
+      
+          results = []
+          for run in data.get("runs", []):
+              tool = run.get("tool", {}).get("driver", {}).get("name", "CodeQL")
+              for r in run.get("results", []):
+                  msg = r.get("message", {}).get("text", "")
+                  rule = r.get("ruleId", "")
+                  level = r.get("level", "")
+                  locs = r.get("locations", [])
+                  location = ""
+                  if locs:
+                      pl = locs[0].get("physicalLocation", {})
+                      art = pl.get("artifactLocation", {}).get("uri", "")
+                      region = pl.get("region", {})
+                      line = region.get("startLine", "")
+                      location = f"{art}:{line}" if line else art
+                  results.append((tool, rule, level, location, msg))
+      
+          rows = "\n".join(
+              f"<tr><td>{html.escape(t)}</td><td>{html.escape(rule)}</td><td>{html.escape(level)}</td><td>{html.escape(loc)}</td><td>{html.escape(msg)}</td></tr>"
+              for t, rule, level, loc, msg in results
+          )
+      
+          out = """<!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <title>CodeQL Report</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 20px; }
+              table { border-collapse: collapse; width: 100%; }
+              th, td { border: 1px solid #ccc; padding: 8px; vertical-align: top; }
+              th { background: #f5f5f5; }
+            </style>
+          </head>
+          <body>
+            <h1>CodeQL Report</h1>
+            <p>Total findings: %d</p>
+            <table>
+              <tr><th>Tool</th><th>Rule</th><th>Level</th><th>Location</th><th>Message</th></tr>
+              %s
+            </table>
+          </body>
+          </html>""" % (len(results), rows)
+      
+          with open("codeql-report.html", "w", encoding="utf-8") as f:
+              f.write(out)
+      
+          print("Generated codeql-report.html")
+          PY
+        env:
+          SARIF_DIR: ${{ runner.temp }}/codeql-sarif
+
+      - name: Upload HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-html-report
+          path: codeql-report.html
+    
+      - name: Send email with CodeQL report
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.MAIL_SERVER }}
+          server_port: ${{ secrets.MAIL_PORT }}
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: CodeQL Report - ${{ github.repository }} - ${{ github.run_number }}
+          to: your-team@example.com
+          from: github-actions@example.com
+          body: |
+            CodeQL scan finished.
+            Repository: ${{ github.repository }}
+            Workflow: ${{ github.workflow }}
+            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          attachments: codeql-report.html
