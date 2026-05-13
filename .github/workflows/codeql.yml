@@ -103,6 +103,7 @@ jobs:
           name: sarif-report
           path:  |
             ${{ runner.temp }}/codeql-sarif
+            ${{ steps.codeql-analyze.outputs.sarif-output }}
 
       - name: Convert SARIF to HTML
         uses: b-zurg/sarif-converter@main
