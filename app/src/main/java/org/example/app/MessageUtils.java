@@ -20,10 +20,13 @@ import java.util.Random;
 class MessageUtils {
     public static String getMessage() {
         String s = "";
-        assert s != null;
-
+        assert s != null; 
         return "Hello      World!";
     }
+
+	void say(String msg) {
+		String s = "";
+	}
 
 
     // High-risk examples that often map to error-level security findings.
